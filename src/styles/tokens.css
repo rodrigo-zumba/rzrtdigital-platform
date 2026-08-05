@@ -1,0 +1,77 @@
+/**
+ * Fonte da verdade: repositório do site institucional (rzrtdigital.com),
+ * src/app/globals.css. Sincronizar manualmente quando a marca mudar —
+ * duplicação consciente, sem monorepo (ver docs/ESPECIFICACAO.md §0).
+ */
+
+:root {
+  /* Cores */
+  --color-bg: #05070d;
+  --color-bg-secondary: #0a0f1c;
+  --color-surface: #101728;
+  --color-surface-hover: #141d33;
+  --color-blue: #2563eb;
+  --color-blue-light: #38bdf8;
+  --color-purple: #7c3aed;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-border: rgba(148, 163, 184, 0.16);
+  --color-border-strong: rgba(148, 163, 184, 0.32);
+
+  /* Estados semânticos (novos — não existem no institucional, necessários
+     para formulários e status do painel) */
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #ef4444;
+
+  /* Gradientes */
+  --gradient-brand: linear-gradient(135deg, var(--color-blue) 0%, var(--color-blue-light) 50%, var(--color-purple) 100%);
+  --gradient-radial: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.18), transparent 60%);
+
+  /* Raios */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+
+  /* Sombras */
+  --shadow-soft: 0 8px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.08), 0 12px 40px -12px rgba(37, 99, 235, 0.35);
+
+  /* Transições */
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 180ms;
+  --duration-base: 250ms;
+  --duration-slow: 350ms;
+
+  /* Layout */
+  --max-width-content: 1280px;
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-blue: var(--color-blue);
+  --color-blue-light: var(--color-blue-light);
+  --color-purple: var(--color-purple);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --font-display: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --breakpoint-xs: 375px;
+  --breakpoint-3xl: 1600px;
+}
