@@ -178,6 +178,11 @@ model User {
   lastLoginAt         DateTime?
   failedLoginAttempts Int        @default(0)
   lockedUntil         DateTime?
+  // Marca de invalidação de sessão: JWT emitido antes deste instante é
+  // tratado como inválido em getRequestContext (necessário para "redefinir
+  // senha invalida sessões" com estratégia JWT — docs/ESPECIFICACAO.md §6 —
+  // já que não há sessão em banco para revogar).
+  passwordChangedAt   DateTime?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

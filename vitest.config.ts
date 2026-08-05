@@ -15,5 +15,8 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     globals: true,
     include: ["tests/**/*.spec.ts", "tests/**/*.spec.tsx"],
+    // Testes de integração tocam Postgres real e podem cair no fail-open do
+    // rate limit (Upstash inacessível em dev) — mais lento que o default.
+    testTimeout: 20000,
   },
 });

@@ -27,8 +27,10 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // Única exceção: repositories são a única camada autorizada a falar com o Prisma.
-    files: ["src/modules/*/repositories/**/*.{ts,tsx}"],
+    // Repositories são a única camada de app autorizada a falar com o
+    // Prisma. Testes de integração também podem — só para montar fixtures
+    // (criar/limpar dados de teste), nunca regra de negócio.
+    files: ["src/modules/*/repositories/**/*.{ts,tsx}", "tests/integration/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": "off",
     },

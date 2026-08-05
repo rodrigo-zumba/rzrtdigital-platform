@@ -29,6 +29,9 @@ const productionOnlyHeaders =
     : [];
 
 const nextConfig: NextConfig = {
+  // CLAUDE.md é a fonte de verdade do projeto (docs/PROMPTS.md) — não deixar
+  // o Next.js anexar automaticamente notas de agente nele em `next dev`.
+  agentRules: false,
   async headers() {
     return [
       {

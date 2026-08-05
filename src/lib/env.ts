@@ -17,6 +17,13 @@ function emptyStringToUndefined(value: unknown): unknown {
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    // `next build`/`next start` forçam NODE_ENV=production mesmo para o
+    // deploy de dev.rzrtdigital.com (docs/AMBIENTES.md) — não dá para usar
+    // NODE_ENV para diferenciar os dois ambientes de deploy. APP_ENV é
+    // explícito e não existe na especificação original; necessário para as
+    // invariantes de "só em produção real" (CLAUDE.md §4.11, §4.12) fazerem
+    // sentido com o comportamento real do Next.js.
+    APP_ENV: z.enum(["development", "production"]).default("development"),
 
     // Banco (Prisma / Postgres)
     DATABASE_URL: z.string().url(),
@@ -70,7 +77,7 @@ const envSchema = z
       });
     }
 
-    if (value.NODE_ENV === "production" && value.EMAIL_TRANSPORT === "console") {
+    if (value.APP_ENV === "production" && value.EMAIL_TRANSPORT === "console") {
       ctx.addIssue({
         code: "custom",
         path: ["EMAIL_TRANSPORT"],
