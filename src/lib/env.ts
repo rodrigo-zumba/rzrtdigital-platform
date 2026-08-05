@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+function extractEmailAddress(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return match?.[1] ?? value;
+}
+
+function emptyStringToUndefined(value: unknown): unknown {
+  return value === "" ? undefined : value;
+}
+
 /**
  * Única fonte de verdade para env vars (docs/ESPECIFICACAO.md §15.5). Falha
  * no boot se algo estiver faltando ou for inválido — nunca em runtime, no
@@ -19,8 +28,15 @@ const envSchema = z
 
     // E-mail (Resend)
     EMAIL_TRANSPORT: z.enum(["resend", "console"]).default("console"),
-    RESEND_API_KEY: z.string().optional(),
-    EMAIL_FROM: z.string().email(),
+    RESEND_API_KEY: z.preprocess(emptyStringToUndefined, z.string().optional()),
+    // Aceita e-mail puro ("a@b.com") ou com nome de exibição ("Nome <a@b.com>"),
+    // formato aceito pelo header "From" (e pelo SDK do Resend).
+    EMAIL_FROM: z
+      .string()
+      .refine(
+        (value) => z.string().email().safeParse(extractEmailAddress(value)).success,
+        "EMAIL_FROM precisa ser um e-mail válido, com ou sem nome de exibição (\"Nome <a@b.com>\").",
+      ),
     // Fora de produção, e-mail nunca sai para endereço real fora desta allowlist
     // (CLAUDE.md §4.12). Não existe na especificação original — necessário para
     // implementar a invariante.
@@ -43,7 +59,7 @@ const envSchema = z
     APP_URL: z.string().url(),
 
     // Observabilidade
-    SENTRY_DSN: z.string().url().optional(),
+    SENTRY_DSN: z.preprocess(emptyStringToUndefined, z.string().url().optional()),
   })
   .superRefine((value, ctx) => {
     if (value.EMAIL_TRANSPORT === "resend" && !value.RESEND_API_KEY) {

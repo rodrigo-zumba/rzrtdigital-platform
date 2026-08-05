@@ -1,0 +1,619 @@
+// docs/ESPECIFICACAO.md §5 — modelo de dados. Alterações aqui são decisões,
+// não sugestões (CLAUDE.md §1). Convenção: código/tabelas/colunas/enums em
+// inglês (CLAUDE.md §3).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: url/directUrl não são mais suportados aqui — ver prisma.config.ts
+// (CLI/migrations, usa DIRECT_URL) e src/lib/db/client.ts (runtime, usa
+// DATABASE_URL via driver adapter @prisma/adapter-pg).
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserType {
+  INTERNAL
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum InternalRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  ANALYST
+}
+
+enum MemberRole {
+  CLIENT_ADMIN
+  CLIENT_MEMBER
+  CLIENT_VIEWER
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum AssignmentType {
+  ACCOUNT_MANAGER
+  ANALYST
+  SUPPORT
+}
+
+enum OrganizationStatus {
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ProjectType {
+  CRIATIVOS
+  ESTRATEGIA_DIGITAL
+  FUNIS_DE_VENDAS
+  INTELIGENCIA_ARTIFICIAL
+  SITES_E_LANDING_PAGES
+  TRAFEGO_PAGO
+  OUTRO
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectPermissionLevel {
+  VIEWER
+  EDITOR
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum CampaignPlatform {
+  META_ADS
+  GOOGLE_ADS
+  TIKTOK_ADS
+  LINKEDIN_ADS
+  OUTRO
+}
+
+enum CampaignStatus {
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum MetricSource {
+  MANUAL
+  META_ADS
+  GOOGLE_ADS
+  GA4
+  TIKTOK_ADS
+  CRM
+}
+
+enum ReportStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FileVisibility {
+  INTERNAL
+  CLIENT
+  PROJECT_MEMBERS
+}
+
+enum FileStatus {
+  PENDING
+  ACTIVE
+  QUARANTINED
+}
+
+enum TicketCategory {
+  TECHNICAL
+  BILLING
+  PROJECT
+  CAMPAIGN
+  GENERAL
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CLIENT
+  RESOLVED
+  CLOSED
+}
+
+// ---------------------------------------------------------------------------
+// Identidade
+// ---------------------------------------------------------------------------
+
+model User {
+  id                  String     @id @default(cuid())
+  name                String
+  email               String     @unique
+  passwordHash        String?
+  avatarUrl           String?
+  type                UserType
+  status              UserStatus @default(ACTIVE)
+  emailVerifiedAt     DateTime?
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  internalProfile         InternalUserProfile?
+  organizationMemberships OrganizationMember[]
+  organizationAssignments OrganizationAssignment[]
+  projectMemberships      ProjectMember[]
+  ownedProjects           Project[]                @relation("ProjectOwner")
+  createdProjects         Project[]                @relation("ProjectCreatedBy")
+  assignedTasks           Task[]                   @relation("TaskAssignee")
+  createdReports          Report[]                 @relation("ReportCreatedBy")
+  uploadedFiles           File[]                   @relation("FileUploadedBy")
+  createdTickets          Ticket[]                 @relation("TicketCreatedBy")
+  assignedTickets         Ticket[]                 @relation("TicketAssignee")
+  ticketMessages          TicketMessage[]
+  notifications           Notification[]
+  sentInvitations         Invitation[]             @relation("InvitationInvitedBy")
+  auditLogEntries         AuditLog[]
+  activities              Activity[]
+  accounts                Account[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@index([type])
+}
+
+model InternalUserProfile {
+  id           String       @id @default(cuid())
+  userId       String       @unique
+  internalRole InternalRole
+  jobTitle     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Organization {
+  id                    String             @id @default(cuid())
+  name                  String
+  slug                  String             @unique
+  legalName             String?
+  document              String?
+  logoUrl               String?
+  website               String?
+  phone                 String?
+  segment               String?
+  status                OrganizationStatus @default(ONBOARDING)
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  deletedAt             DateTime?
+
+  members         OrganizationMember[]
+  assignments     OrganizationAssignment[]
+  invitations     Invitation[]
+  projects        Project[]
+  campaigns       Campaign[]
+  reports         Report[]
+  files           File[]
+  tickets         Ticket[]
+  notifications   Notification[]
+  auditLogEntries AuditLog[]
+  activities      Activity[]
+  settings        Setting[]
+
+  @@index([status, deletedAt])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MemberRole
+  status         MemberStatus @default(ACTIVE)
+  invitedById    String?
+  joinedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model OrganizationAssignment {
+  id             String         @id @default(cuid())
+  organizationId String
+  userId         String
+  assignmentType AssignmentType
+  createdAt      DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, assignmentType])
+  @@index([userId])
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  email          String
+  organizationId String?
+  targetType     UserType
+  role           String
+  tokenHash      String           @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  status         InvitationStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User          @relation("InvitationInvitedBy", fields: [invitedById], references: [id])
+
+  @@index([email, organizationId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Operação (Fase 4 — modelos previstos no schema desde a Fase 1 por estarem
+// referenciados em Task/ProjectMember/Campaign etc.; sem páginas/rotas ainda)
+// ---------------------------------------------------------------------------
+
+model Project {
+  id             String          @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  type           ProjectType
+  status         ProjectStatus   @default(PLANNING)
+  priority       ProjectPriority @default(MEDIUM)
+  startDate      DateTime?
+  dueDate        DateTime?
+  progress       Int             @default(0)
+  ownerId        String?
+  createdById    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User?           @relation("ProjectOwner", fields: [ownerId], references: [id])
+  createdBy    User            @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  members      ProjectMember[]
+  tasks        Task[]
+  campaigns    Campaign[]
+  reports      Report[]
+  files        File[]
+
+  @@index([organizationId, deletedAt])
+}
+
+model ProjectMember {
+  id              String                 @id @default(cuid())
+  projectId       String
+  userId          String
+  permissionLevel ProjectPermissionLevel @default(VIEWER)
+  createdAt       DateTime               @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id           String          @id @default(cuid())
+  projectId    String
+  title        String
+  description  String?
+  status       TaskStatus      @default(TODO)
+  priority     ProjectPriority @default(MEDIUM)
+  assignedToId String?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  @@index([projectId])
+}
+
+model Campaign {
+  id             String           @id @default(cuid())
+  organizationId String
+  projectId      String?
+  name           String
+  platform       CampaignPlatform
+  objective      String?
+  status         CampaignStatus   @default(PLANNING)
+  startDate      DateTime?
+  endDate        DateTime?
+  budget         Decimal?         @db.Decimal(14, 2)
+  currency       String           @default("BRL")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?         @relation(fields: [projectId], references: [id])
+  metrics      CampaignMetric[]
+
+  @@index([organizationId, deletedAt])
+  @@index([projectId])
+}
+
+model CampaignMetric {
+  id          String       @id @default(cuid())
+  campaignId  String
+  date        DateTime     @db.Date
+  impressions Int
+  reach       Int?
+  clicks      Int
+  leads       Int
+  conversions Int
+  spend       Decimal      @db.Decimal(14, 2)
+  revenue     Decimal?     @db.Decimal(14, 2)
+  source      MetricSource @default(MANUAL)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date, source])
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String?
+  title          String
+  description    String?
+  periodStart    DateTime     @db.Date
+  periodEnd      DateTime     @db.Date
+  status         ReportStatus @default(DRAFT)
+  content        Json
+  publishedAt    DateTime?
+  createdById    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id])
+  createdBy    User         @relation("ReportCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, status, deletedAt])
+}
+
+model File {
+  id             String         @id @default(cuid())
+  organizationId String
+  projectId      String?
+  name           String
+  originalName   String
+  storageKey     String         @unique
+  mimeType       String
+  size           Int
+  checksum       String?
+  visibility     FileVisibility @default(INTERNAL)
+  status         FileStatus     @default(PENDING)
+  uploadedById   String
+  createdAt      DateTime       @default(now())
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id])
+  uploadedBy   User         @relation("FileUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([organizationId, status, deletedAt])
+}
+
+model Ticket {
+  id             String          @id @default(cuid())
+  organizationId String
+  number         Int
+  subject        String
+  description    String
+  category       TicketCategory  @default(GENERAL)
+  priority       ProjectPriority @default(MEDIUM)
+  status         TicketStatus    @default(OPEN)
+  createdById    String
+  assignedToId   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  closedAt       DateTime?
+  deletedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedTo   User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  messages     TicketMessage[]
+
+  @@unique([organizationId, number])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String
+  message    String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Notificações, auditoria e configuração
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String    @id @default(cuid())
+  userId         String
+  organizationId String?
+  type           String
+  title          String
+  message        String
+  link           String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  actorUserId    String?
+  organizationId String?
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  actor        User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId])
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  type           String
+  description    String
+  entityType     String?
+  entityId       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
+
+model Setting {
+  id             String   @id @default(cuid())
+  organizationId String?
+  key            String
+  value          Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js — modelos do adapter (session strategy é "jwt"; mantidos para
+// permitir provider OAuth futuro sem migration adicional)
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

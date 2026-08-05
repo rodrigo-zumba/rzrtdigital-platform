@@ -13,12 +13,14 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [{ name: "@/lib/db", message: PRISMA_ACCESS_MESSAGE }],
-          patterns: [
-            {
-              group: ["@/lib/db/*", "*/lib/db", "*/lib/db/*"],
-              message: PRISMA_ACCESS_MESSAGE,
-            },
+          // Só os módulos que de fato tocam o Prisma (`db` estendido e o
+          // client cru). Os helpers puros de src/lib/db/ (tenant-guard,
+          // tenant-scoped-models) não importam o Prisma e ficam de fora —
+          // são testados diretamente em tests/unit/.
+          paths: [
+            { name: "@/lib/db", message: PRISMA_ACCESS_MESSAGE },
+            { name: "@/lib/db/client", message: PRISMA_ACCESS_MESSAGE },
+            { name: "@/lib/db/index", message: PRISMA_ACCESS_MESSAGE },
           ],
         },
       ],
