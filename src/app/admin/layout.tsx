@@ -10,10 +10,15 @@ import { getNotificationsPreview } from "@/modules/notifications/services/notifi
 
 const BREADCRUMB_LABELS: Record<string, string> = {
   clientes: "Clientes",
-  novo: "Novo cliente",
+  novo: "Novo",
   usuarios: "Usuários",
   logs: "Logs",
   notificacoes: "Notificações",
+  projetos: "Projetos",
+  campanhas: "Campanhas",
+  relatorios: "Relatórios",
+  chamados: "Chamados",
+  arquivos: "Arquivos",
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

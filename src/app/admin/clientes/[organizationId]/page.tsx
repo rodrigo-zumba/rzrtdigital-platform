@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AssignmentsSection } from "@/components/admin/AssignmentsSection";
@@ -51,6 +52,34 @@ export default async function ClienteDetalhePage({
           <p className="mt-1 text-sm text-text-secondary">/{organization.slug}</p>
         </div>
         <OrganizationStatusBadge status={organization.status} />
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        {hasPermission(ctx, "projects.read") && (
+          <Link href={`/admin/clientes/${organizationId}/projetos`} className="text-sm text-blue-light hover:underline">
+            Ver projetos →
+          </Link>
+        )}
+        {hasPermission(ctx, "campaigns.read") && (
+          <Link href={`/admin/clientes/${organizationId}/campanhas`} className="text-sm text-blue-light hover:underline">
+            Ver campanhas →
+          </Link>
+        )}
+        {hasPermission(ctx, "reports.read") && (
+          <Link href={`/admin/clientes/${organizationId}/relatorios`} className="text-sm text-blue-light hover:underline">
+            Ver relatórios →
+          </Link>
+        )}
+        {hasPermission(ctx, "tickets.read") && (
+          <Link href={`/admin/clientes/${organizationId}/chamados`} className="text-sm text-blue-light hover:underline">
+            Ver chamados →
+          </Link>
+        )}
+        {hasPermission(ctx, "files.download") && (
+          <Link href={`/admin/clientes/${organizationId}/arquivos`} className="text-sm text-blue-light hover:underline">
+            Ver arquivos →
+          </Link>
+        )}
       </div>
 
       {canArchive && (

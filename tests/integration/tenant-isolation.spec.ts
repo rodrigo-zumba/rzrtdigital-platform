@@ -21,6 +21,10 @@ import {
   updateInternalUserRole,
   updateMemberRole,
 } from "@/modules/users/services/user.service";
+import { createProject, getProject, updateProject } from "@/modules/projects/services/project.service";
+import { createCampaign, getCampaign } from "@/modules/campaigns/services/campaign.service";
+import { createReport, getReport, setReportStatus } from "@/modules/reports/services/report.service";
+import { createTicket, getTicket } from "@/modules/tickets/services/ticket.service";
 
 /**
  * Etapa 5 (docs/PROMPTS.md): itera cenários de acesso cruzado entre
@@ -275,5 +279,130 @@ describe("tenant isolation — usuários e atribuições (Fase 2)", () => {
       where: { id: { in: otherActiveSuperAdmins.map((admin) => admin.id) } },
       data: { status: "ACTIVE" },
     });
+  });
+});
+
+describe("tenant isolation — projetos, campanhas, relatórios, chamados (Fase 4)", () => {
+  it("MANAGER com carteira só na Org A não lê nem edita projeto/campanha da Org B", async () => {
+    const orgA = await createOrg("a-fase4-proj");
+    const orgB = await createOrg("b-fase4-proj");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+
+    const project = await createProject(adminCtx, orgB.id, { name: "Projeto B", type: "OUTRO", priority: "MEDIUM" });
+    const campaign = await createCampaign(adminCtx, orgB.id, { name: "Campanha B", platform: "META_ADS" });
+
+    const managerCtx = internalCtx({
+      internalRole: "MANAGER",
+      assignments: [{ organizationId: orgA.id, assignmentType: "ACCOUNT_MANAGER" }],
+    });
+
+    await expect(getProject(managerCtx, orgB.id, project.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      updateProject(managerCtx, orgB.id, project.id, { name: "Hackeado", type: "OUTRO", priority: "LOW" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(getCampaign(managerCtx, orgB.id, campaign.id)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("projeto e campanha passados com organizationId da Org A mas id da Org B não vazam dado (IDOR)", async () => {
+    const orgA = await createOrg("a-fase4-idor");
+    const orgB = await createOrg("b-fase4-idor");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+
+    const projectB = await createProject(adminCtx, orgB.id, { name: "Projeto IDOR B", type: "OUTRO", priority: "MEDIUM" });
+
+    // Mesmo um SUPER_ADMIN (acesso irrestrito à organização) não encontra o
+    // projeto de B se o organizationId informado for o de A — o service
+    // sempre resolve o projeto pelo par (id, organizationId), nunca só pelo id.
+    await expect(getProject(adminCtx, orgA.id, projectB.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("CLIENT nunca vê relatório DRAFT, nem da própria organização", async () => {
+    const orgA = await createOrg("a-fase4-report");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+    const report = await createReport(adminCtx, orgA.id, {
+      title: "Relatório Draft",
+      periodStart: new Date("2026-01-01"),
+      periodEnd: new Date("2026-01-31"),
+      content: "conteúdo",
+    });
+
+    const clientCtxA = clientCtx({
+      memberships: [{ organizationId: orgA.id, organizationName: orgA.name, role: "CLIENT_ADMIN", status: "ACTIVE" }],
+    });
+
+    await expect(getReport(clientCtxA, orgA.id, report.id)).rejects.toBeInstanceOf(ForbiddenError);
+
+    await setReportStatus(adminCtx, orgA.id, report.id, "REVIEW");
+    await setReportStatus(adminCtx, orgA.id, report.id, "PUBLISHED");
+
+    const published = await getReport(clientCtxA, orgA.id, report.id);
+    expect(published.status).toBe("PUBLISHED");
+  });
+
+  it("CLIENT de outra organização não lê relatório publicado da Org A", async () => {
+    const orgA = await createOrg("a-fase4-report-cross");
+    const orgB = await createOrg("b-fase4-report-cross");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+    const report = await createReport(adminCtx, orgA.id, {
+      title: "Relatório Publicado A",
+      periodStart: new Date("2026-01-01"),
+      periodEnd: new Date("2026-01-31"),
+      content: "conteúdo",
+    });
+    await setReportStatus(adminCtx, orgA.id, report.id, "REVIEW");
+    await setReportStatus(adminCtx, orgA.id, report.id, "PUBLISHED");
+
+    const clientCtxB = clientCtx({
+      memberships: [{ organizationId: orgB.id, organizationName: orgB.name, role: "CLIENT_ADMIN", status: "ACTIVE" }],
+    });
+
+    await expect(getReport(clientCtxB, orgA.id, report.id)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("CLIENT nunca vê TicketMessage.isInternal, mesmo no próprio chamado", async () => {
+    const orgA = await createOrg("a-fase4-ticket");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+    const ticket = await createTicket(adminCtx, orgA.id, {
+      subject: "Chamado teste",
+      description: "Descrição",
+      category: "GENERAL",
+      priority: "MEDIUM",
+    });
+
+    await db.ticketMessage.create({
+      data: { ticketId: ticket.id, authorId: adminCtx.userId, message: "Nota interna", isInternal: true },
+    });
+    await db.ticketMessage.create({
+      data: { ticketId: ticket.id, authorId: adminCtx.userId, message: "Resposta pública", isInternal: false },
+    });
+
+    const clientCtxA = clientCtx({
+      memberships: [{ organizationId: orgA.id, organizationName: orgA.name, role: "CLIENT_ADMIN", status: "ACTIVE" }],
+    });
+
+    const ticketForClient = await getTicket(clientCtxA, orgA.id, ticket.id);
+    expect(ticketForClient.messages).toHaveLength(1);
+    expect(ticketForClient.messages[0]?.isInternal).toBe(false);
+
+    const ticketForAdmin = await getTicket(adminCtx, orgA.id, ticket.id);
+    expect(ticketForAdmin.messages).toHaveLength(2);
+  });
+
+  it("CLIENT de outra organização não acessa chamado da Org A", async () => {
+    const orgA = await createOrg("a-fase4-ticket-cross");
+    const orgB = await createOrg("b-fase4-ticket-cross");
+    const adminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+    const ticket = await createTicket(adminCtx, orgA.id, {
+      subject: "Chamado A",
+      description: "Descrição",
+      category: "GENERAL",
+      priority: "MEDIUM",
+    });
+
+    const clientCtxB = clientCtx({
+      memberships: [{ organizationId: orgB.id, organizationName: orgB.name, role: "CLIENT_ADMIN", status: "ACTIVE" }],
+    });
+
+    await expect(getTicket(clientCtxB, orgA.id, ticket.id)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

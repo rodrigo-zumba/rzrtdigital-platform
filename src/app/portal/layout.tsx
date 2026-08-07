@@ -16,6 +16,12 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   organizacao: "Organização",
   onboarding: "Onboarding",
   notificacoes: "Notificações",
+  projetos: "Projetos",
+  campanhas: "Campanhas",
+  relatorios: "Relatórios",
+  chamados: "Chamados",
+  arquivos: "Arquivos",
+  novo: "Novo",
 };
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -41,6 +47,11 @@ export default async function PortalLayout({ children }: { children: React.React
       navItems={[
         { href: "/portal", label: "Início" },
         { href: "/portal/onboarding", label: "Onboarding" },
+        ...(hasPermission(ctx, "projects.read") ? [{ href: "/portal/projetos", label: "Projetos" }] : []),
+        ...(hasPermission(ctx, "campaigns.read") ? [{ href: "/portal/campanhas", label: "Campanhas" }] : []),
+        ...(hasPermission(ctx, "reports.read") ? [{ href: "/portal/relatorios", label: "Relatórios" }] : []),
+        ...(hasPermission(ctx, "tickets.read") ? [{ href: "/portal/chamados", label: "Chamados" }] : []),
+        ...(hasPermission(ctx, "files.download") ? [{ href: "/portal/arquivos", label: "Arquivos" }] : []),
         ...(hasPermission(ctx, "users.read") ? [{ href: "/portal/equipe", label: "Equipe" }] : []),
         { href: "/portal/organizacao", label: "Organização" },
         { href: "/portal/perfil", label: "Perfil" },
