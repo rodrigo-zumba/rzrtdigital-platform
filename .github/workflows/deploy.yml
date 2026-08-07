@@ -70,7 +70,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             if [ "${{ github.ref_name }}" = "main" ]; then
-              /var/www/rzrt-app-prod/scripts/deploy-remote.sh prod
+              bash /var/www/rzrt-prod/scripts/deploy-remote.sh prod
             else
-              /var/www/rzrt-app-dev/scripts/deploy-remote.sh dev
+              bash /var/www/rzrt-dev/scripts/deploy-remote.sh dev
             fi

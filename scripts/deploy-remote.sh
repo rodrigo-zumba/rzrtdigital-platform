@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # Executado NA VPS pelo GitHub Actions via SSH (docs/DEPLOY-HOSTINGER.md).
 # Uso: ./deploy-remote.sh <prod|dev>
+#
+# Os diretórios, o usuário `deploy` e os processos pm2 (rzrt-prod/rzrt-dev)
+# já existem na VPS — este script só automatiza o que hoje é feito na mão.
 set -euo pipefail
 
 TARGET="${1:?Uso: deploy-remote.sh <prod|dev>}"
 
 case "$TARGET" in
   prod)
-    APP_DIR="/var/www/rzrt-app-prod"
+    APP_DIR="/var/www/rzrt-prod"
     BRANCH="main"
-    PM2_NAME="rzrt-app-prod"
+    PM2_NAME="rzrt-prod"
     ;;
   dev)
-    APP_DIR="/var/www/rzrt-app-dev"
+    APP_DIR="/var/www/rzrt-dev"
     BRANCH="develop"
-    PM2_NAME="rzrt-app-dev"
+    PM2_NAME="rzrt-dev"
     ;;
   *)
     echo "✖ Alvo inválido: $TARGET (use 'prod' ou 'dev')" >&2
