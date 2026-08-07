@@ -1,0 +1,76 @@
+name: Deploy
+
+# docs/DEPLOY-HOSTINGER.md. Roda a Definition of Done (CLAUDE.md §7) antes de
+# tocar no servidor — nada é enviado à VPS se typecheck/lint/test/build
+# falhar. Nunca dá deploy em pull_request, só em push direto às branches de
+# ambiente (depois do merge).
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  # CI só — não é o build/banco que roda na VPS. Valores fake o bastante
+  # para passar a validação de env (src/lib/env.ts) sem tocar em recurso real.
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+  DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci"
+  AUTH_SECRET: "ci-only-secret-not-used-in-real-deploy-aaaaaaaaaaaaaaaa"
+  AUTH_URL: "http://localhost:3000"
+  EMAIL_TRANSPORT: "console"
+  EMAIL_FROM: "RZRT Digital <nao-responda@rzrtdigital.com>"
+  EMAIL_DEV_ALLOWLIST_DOMAINS: "rzrtdigital.com"
+  UPSTASH_REDIS_REST_URL: "https://exemplo.upstash.io"
+  UPSTASH_REDIS_REST_TOKEN: "ci-only"
+  S3_ENDPOINT: "https://exemplo.r2.cloudflarestorage.com"
+  S3_BUCKET: "ci-only"
+  S3_ACCESS_KEY_ID: "ci-only"
+  S3_SECRET_ACCESS_KEY: "ci-only"
+  S3_PUBLIC_URL: "https://files-ci.rzrtdigital.com"
+  APP_URL: "http://localhost:3000"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm prisma migrate deploy
+      - run: pnpm test
+      - run: pnpm build
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            if [ "${{ github.ref_name }}" = "main" ]; then
+              /var/www/rzrt-app-prod/scripts/deploy-remote.sh prod
+            else
+              /var/www/rzrt-app-dev/scripts/deploy-remote.sh dev
+            fi
