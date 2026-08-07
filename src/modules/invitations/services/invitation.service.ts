@@ -1,11 +1,11 @@
-import type { MemberRole } from "@prisma/client";
+import type { InternalRole, MemberRole } from "@prisma/client";
 
 import { hashPassword } from "@/lib/auth/password";
 import type { RequestContext } from "@/lib/auth/types";
 import { env } from "@/lib/env";
 import { invitationEmail, sendEmail } from "@/lib/email";
 import { AppError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { assertOrganizationAccess, requirePermission } from "@/lib/permissions";
+import { assertOrganizationAccess, canGrantInternalRole, requirePermission } from "@/lib/permissions";
 import { generateToken, hashToken, INVITATION_EXPIRATION_MS } from "@/lib/security/tokens";
 import { createAuditLog } from "@/modules/audit/repositories/audit-log.repository";
 import {
@@ -22,8 +22,6 @@ import { findByEmail } from "@/modules/users/repositories/user.repository";
 /**
  * Convite de CLIENT para uma organização. Só um PENDING por (email, org) —
  * revoga o anterior ao reenviar (docs/ESPECIFICACAO.md §5, modelo Invitation).
- * Sem página/action pública nesta fase — CRUD de usuários é Fase 2; esta
- * função existe para o ciclo de vida do convite (aceite) ser testável.
  */
 export async function inviteClientToOrganization(
   ctx: RequestContext,
@@ -63,6 +61,52 @@ export async function inviteClientToOrganization(
   await createAuditLog({
     actorUserId: ctx.userId,
     organizationId: params.organizationId,
+    action: "invitation.create",
+    entityType: "Invitation",
+    entityId: invitation.id,
+    metadata: { email, role: params.role },
+  });
+
+  return invitation;
+}
+
+/**
+ * Convite de um novo INTERNAL (ADMIN/MANAGER/ANALYST). SUPER_ADMIN nunca é
+ * concedido por convite — só via `pnpm create-superadmin`
+ * (docs/ESPECIFICACAO.md §15.4). Guard de escalada de privilégio: quem
+ * convida nunca convida para um papel igual ou superior ao seu.
+ */
+export async function inviteInternalUser(ctx: RequestContext, params: { email: string; role: InternalRole }) {
+  requirePermission(ctx, "users.invite");
+  if (!canGrantInternalRole(ctx, params.role)) throw new ForbiddenError();
+
+  const email = params.email.trim().toLowerCase();
+
+  const existing = await findPendingByEmailAndOrganization(email, null);
+  if (existing) await revokeInvitation(existing.id, existing.organizationId);
+
+  const { token, tokenHash } = generateToken();
+  const invitation = await createInvitation({
+    email,
+    organizationId: null,
+    targetType: "INTERNAL",
+    role: params.role,
+    tokenHash,
+    invitedById: ctx.userId,
+    expiresAt: new Date(Date.now() + INVITATION_EXPIRATION_MS),
+  });
+
+  await sendEmail({
+    to: email,
+    ...invitationEmail({
+      inviterName: ctx.name,
+      acceptUrl: `${env.APP_URL}/convite/${token}`,
+    }),
+  });
+
+  await createAuditLog({
+    actorUserId: ctx.userId,
+    organizationId: null,
     action: "invitation.create",
     entityType: "Invitation",
     entityId: invitation.id,

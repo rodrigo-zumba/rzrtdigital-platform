@@ -45,6 +45,21 @@ export async function getOrganization(ctx: RequestContext, organizationId: strin
   return organization;
 }
 
+/**
+ * Variante para a página "Organização" do portal (Fase 3): qualquer membro
+ * ativo (CLIENT_ADMIN/MEMBER/VIEWER) vê os dados da própria organização —
+ * não exige `organizations.read` (permissão interna, que CLIENT nunca tem),
+ * só a membership resolvida no ctx.
+ */
+export async function getOrganizationForMember(ctx: RequestContext, organizationId: string) {
+  assertOrganizationAccess(ctx, organizationId);
+
+  const organization = await findById(organizationId);
+  if (!organization || organization.deletedAt) throw new NotFoundError("Organização não encontrada.");
+
+  return organization;
+}
+
 async function assertSlugAvailable(slug: string, currentOrganizationId?: string) {
   const existing = await findBySlug(slug);
   if (existing && existing.id !== currentOrganizationId) {

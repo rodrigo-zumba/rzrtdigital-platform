@@ -1,6 +1,8 @@
 export {
   canAccessOrganization,
   canAccessProject,
+  canGrantInternalRole,
+  canGrantMemberRole,
   canManageUser,
   hasPermission,
   requirePermission,

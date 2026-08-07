@@ -10,7 +10,15 @@ import { getNotificationsPreview } from "@/modules/notifications/services/notifi
 
 const BREADCRUMB_LABELS: Record<string, string> = {
   clientes: "Clientes",
-  novo: "Novo cliente",
+  novo: "Novo",
+  usuarios: "Usuários",
+  logs: "Logs",
+  notificacoes: "Notificações",
+  projetos: "Projetos",
+  campanhas: "Campanhas",
+  relatorios: "Relatórios",
+  chamados: "Chamados",
+  arquivos: "Arquivos",
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +31,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const navItems = [
     { href: "/admin", label: "Início" },
     ...(hasPermission(ctx, "organizations.read") ? [{ href: "/admin/clientes", label: "Clientes" }] : []),
+    ...(hasPermission(ctx, "users.read") ? [{ href: "/admin/usuarios", label: "Usuários" }] : []),
+    ...(hasPermission(ctx, "auditLogs.read") ? [{ href: "/admin/logs", label: "Logs" }] : []),
   ];
 
   return (
@@ -33,7 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </p>
       }
       navItems={navItems}
-      notifications={<NotificationsMenu items={items} unreadCount={unreadCount} />}
+      notifications={<NotificationsMenu items={items} unreadCount={unreadCount} viewAllHref="/admin/notificacoes" />}
       userMenu={<UserMenu name={ctx.name} email={ctx.email} />}
       breadcrumbs={<Breadcrumbs root="/admin" rootLabel="Admin" labels={BREADCRUMB_LABELS} />}
     >
