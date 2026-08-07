@@ -11,6 +11,8 @@ import { getNotificationsPreview } from "@/modules/notifications/services/notifi
 const BREADCRUMB_LABELS: Record<string, string> = {
   clientes: "Clientes",
   novo: "Novo cliente",
+  usuarios: "Usuários",
+  logs: "Logs",
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +25,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const navItems = [
     { href: "/admin", label: "Início" },
     ...(hasPermission(ctx, "organizations.read") ? [{ href: "/admin/clientes", label: "Clientes" }] : []),
+    ...(hasPermission(ctx, "users.read") ? [{ href: "/admin/usuarios", label: "Usuários" }] : []),
+    ...(hasPermission(ctx, "auditLogs.read") ? [{ href: "/admin/logs", label: "Logs" }] : []),
   ];
 
   return (

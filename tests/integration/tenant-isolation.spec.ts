@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth/password";
 import type { RequestContext } from "@/lib/auth/types";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { db } from "@/lib/db";
+import { createAssignment } from "@/modules/organizations/services/assignment.service";
 import {
   changeOrganizationStatus,
   createOrganization,
@@ -13,6 +14,13 @@ import {
   getOrganization,
   updateOrganization,
 } from "@/modules/organizations/services/organization.service";
+import {
+  removeMember,
+  setInternalUserStatus,
+  setMemberStatus,
+  updateInternalUserRole,
+  updateMemberRole,
+} from "@/modules/users/services/user.service";
 
 /**
  * Etapa 5 (docs/PROMPTS.md): itera cenários de acesso cruzado entre
@@ -150,5 +158,122 @@ describe("tenant isolation — organizations", () => {
     await expect(
       createOrganization(superAdminCtx, { name: "Duplicada", slug: `dup-slug-${suffix}` }),
     ).rejects.toThrow();
+  });
+});
+
+describe("tenant isolation — usuários e atribuições (Fase 2)", () => {
+  it("MANAGER com carteira só na Org A não gerencia membro nem atribuição da Org B", async () => {
+    const orgA = await createOrg("a-users");
+    const orgB = await createOrg("b-users");
+    const managerCtx = internalCtx({
+      internalRole: "MANAGER",
+      assignments: [{ organizationId: orgA.id, assignmentType: "ACCOUNT_MANAGER" }],
+    });
+
+    const member = await db.user.create({
+      data: {
+        name: "Membro Org B",
+        email: `membro-orgb-${suffix}@demo.rzrtdigital.com`,
+        type: "CLIENT",
+        status: "ACTIVE",
+      },
+    });
+    await db.organizationMember.create({
+      data: { userId: member.id, organizationId: orgB.id, role: "CLIENT_MEMBER", status: "ACTIVE" },
+    });
+
+    await expect(updateMemberRole(managerCtx, orgB.id, member.id, "CLIENT_ADMIN")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(setMemberStatus(managerCtx, orgB.id, member.id, "SUSPENDED")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(removeMember(managerCtx, orgB.id, member.id)).rejects.toBeInstanceOf(ForbiddenError);
+
+    // assignments.manage é exclusivo de ADMIN/SUPER_ADMIN — MANAGER não gerencia
+    // nem a própria carteira, em nenhuma organização.
+    await expect(createAssignment(managerCtx, orgA.id, member.id, "ACCOUNT_MANAGER")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+
+    await db.user.delete({ where: { id: member.id } });
+  });
+
+  it("CLIENT_ADMIN da Org A não gerencia membro da Org B mesmo conhecendo o id", async () => {
+    const orgA = await createOrg("a-client-admin");
+    const orgB = await createOrg("b-client-admin");
+    const clientAdminCtx = clientCtx({
+      memberships: [{ organizationId: orgA.id, organizationName: orgA.name, role: "CLIENT_ADMIN", status: "ACTIVE" }],
+    });
+
+    const memberB = await db.user.create({
+      data: {
+        name: "Membro Org B 2",
+        email: `membro-orgb2-${suffix}@demo.rzrtdigital.com`,
+        type: "CLIENT",
+        status: "ACTIVE",
+      },
+    });
+    await db.organizationMember.create({
+      data: { userId: memberB.id, organizationId: orgB.id, role: "CLIENT_MEMBER", status: "ACTIVE" },
+    });
+
+    await expect(updateMemberRole(clientAdminCtx, orgB.id, memberB.id, "CLIENT_VIEWER")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(removeMember(clientAdminCtx, orgB.id, memberB.id)).rejects.toBeInstanceOf(ForbiddenError);
+
+    await db.user.delete({ where: { id: memberB.id } });
+  });
+
+  it("ADMIN não concede papel SUPER_ADMIN a outro usuário (escalada de privilégio)", async () => {
+    const adminCtx = internalCtx({ internalRole: "ADMIN" });
+    const target = await db.user.create({
+      data: {
+        name: "Alvo",
+        email: `alvo-escalada-${suffix}@demo.rzrtdigital.com`,
+        type: "INTERNAL",
+        status: "ACTIVE",
+      },
+    });
+    await db.internalUserProfile.create({ data: { userId: target.id, internalRole: "ANALYST" } });
+
+    await expect(updateInternalUserRole(adminCtx, target.id, "SUPER_ADMIN")).rejects.toBeInstanceOf(ForbiddenError);
+
+    await db.user.delete({ where: { id: target.id } });
+  });
+
+  it("ninguém suspende ou rebaixa o último SUPER_ADMIN ativo", async () => {
+    // Suspende temporariamente qualquer SUPER_ADMIN pré-existente (seed) para
+    // que o cenário seja determinístico, e restaura no fim do teste.
+    const otherActiveSuperAdmins = await db.user.findMany({
+      where: { type: "INTERNAL", status: "ACTIVE", internalProfile: { internalRole: "SUPER_ADMIN" } },
+      select: { id: true },
+    });
+    await db.user.updateMany({
+      where: { id: { in: otherActiveSuperAdmins.map((admin) => admin.id) } },
+      data: { status: "SUSPENDED" },
+    });
+
+    const lastSuperAdmin = await db.user.create({
+      data: {
+        name: "Último Super Admin",
+        email: `ultimo-superadmin-${suffix}@demo.rzrtdigital.com`,
+        type: "INTERNAL",
+        status: "ACTIVE",
+      },
+    });
+    await db.internalUserProfile.create({ data: { userId: lastSuperAdmin.id, internalRole: "SUPER_ADMIN" } });
+
+    const otherSuperAdminCtx = internalCtx({ internalRole: "SUPER_ADMIN" });
+
+    await expect(setInternalUserStatus(otherSuperAdminCtx, lastSuperAdmin.id, "SUSPENDED")).rejects.toThrow();
+    await expect(updateInternalUserRole(otherSuperAdminCtx, lastSuperAdmin.id, "ADMIN")).rejects.toThrow();
+
+    await db.user.delete({ where: { id: lastSuperAdmin.id } });
+    await db.user.updateMany({
+      where: { id: { in: otherActiveSuperAdmins.map((admin) => admin.id) } },
+      data: { status: "ACTIVE" },
+    });
   });
 });
