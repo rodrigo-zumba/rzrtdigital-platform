@@ -22,6 +22,7 @@ import {
   setUserStatus as setUserStatusRow,
   updateInternalRole as updateInternalRoleRow,
   updateMemberRole as updateMemberRoleRow,
+  updateOwnName,
   type InternalUserFilters,
 } from "@/modules/users/repositories/user.repository";
 
@@ -181,4 +182,20 @@ export async function removeMember(ctx: RequestContext, organizationId: string, 
     entityId: membership.id,
     metadata: { removedUserId: userId },
   });
+}
+
+/** Qualquer usuário autenticado edita o próprio nome — não exige permissão além de estar logado. */
+export async function updateOwnProfile(ctx: RequestContext, name: string) {
+  const updated = await updateOwnName(ctx.userId, name);
+
+  await createAuditLog({
+    actorUserId: ctx.userId,
+    organizationId: null,
+    action: "user.profile_update",
+    entityType: "User",
+    entityId: ctx.userId,
+    metadata: {},
+  });
+
+  return updated;
 }

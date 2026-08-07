@@ -78,7 +78,16 @@ export default async function ClienteDetalhePage({
         />
       </section>
 
-      {members && <TeamMembersSection organizationId={organizationId} members={members} />}
+      {members && (
+        <TeamMembersSection
+          organizationId={organizationId}
+          members={members}
+          canEditRole={hasPermission(ctx, "users.update")}
+          canSuspend={hasPermission(ctx, "users.suspend")}
+          canRemove={hasPermission(ctx, "users.remove")}
+          canInvite={hasPermission(ctx, "users.invite")}
+        />
+      )}
 
       {assignmentsData && (
         <AssignmentsSection

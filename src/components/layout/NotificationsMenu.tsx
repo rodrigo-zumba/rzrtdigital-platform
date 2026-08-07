@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { markNotificationReadAction } from "@/modules/notifications/actions/mark-notification-read.action";
 
 type NotificationItem = {
@@ -16,7 +18,15 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-export function NotificationsMenu({ items, unreadCount }: { items: NotificationItem[]; unreadCount: number }) {
+export function NotificationsMenu({
+  items,
+  unreadCount,
+  viewAllHref,
+}: {
+  items: NotificationItem[];
+  unreadCount: number;
+  viewAllHref: string;
+}) {
   return (
     <details className="group relative">
       <summary
@@ -73,6 +83,10 @@ export function NotificationsMenu({ items, unreadCount }: { items: NotificationI
             ))
           )}
         </div>
+
+        <Link href={viewAllHref} className="mt-2 block text-center text-xs text-blue-light hover:underline">
+          Ver todas
+        </Link>
       </div>
     </details>
   );

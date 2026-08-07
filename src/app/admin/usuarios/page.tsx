@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 
 import { InternalRoleForm } from "@/components/admin/InternalRoleForm";
 import { UserStatusActions } from "@/components/admin/UserStatusActions";
+import { InviteInternalUserForm } from "@/components/forms/InviteInternalUserForm";
 import { Button } from "@/components/ui/Button";
 import { ForbiddenState } from "@/components/ui/ForbiddenState";
 import { Pagination } from "@/components/ui/Pagination";
 import { requireRequestContext } from "@/lib/auth";
 import { ForbiddenError } from "@/lib/errors";
+import { hasPermission } from "@/lib/permissions";
 import { listInternalUsersSchema } from "@/modules/users/schemas/user.schemas";
 import { listInternalUsers } from "@/modules/users/services/user.service";
 
@@ -47,6 +49,13 @@ export default async function UsuariosPage({
         <h1 className="text-xl font-semibold text-text-primary">Usuários internos</h1>
         <p className="mt-1 text-sm text-text-secondary">{result.total} usuário(s) cadastrado(s).</p>
       </div>
+
+      {hasPermission(ctx, "users.invite") && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-text-secondary">Convidar usuário</h2>
+          <InviteInternalUserForm />
+        </section>
+      )}
 
       <form className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">

@@ -13,18 +13,22 @@ export function MemberRowActions({
   userId,
   status,
   userName,
+  canSuspend = true,
+  canRemove = true,
 }: {
   organizationId: string;
   userId: string;
   status: MemberStatus;
   userName: string;
+  canSuspend?: boolean;
+  canRemove?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2">
-      {status !== "PENDING" && (
+      {canSuspend && status !== "PENDING" && (
         <StatusForm organizationId={organizationId} userId={userId} status={status} />
       )}
-      <RemoveForm organizationId={organizationId} userId={userId} userName={userName} />
+      {canRemove && <RemoveForm organizationId={organizationId} userId={userId} userName={userName} />}
     </div>
   );
 }

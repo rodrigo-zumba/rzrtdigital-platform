@@ -13,6 +13,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   novo: "Novo cliente",
   usuarios: "Usuários",
   logs: "Logs",
+  notificacoes: "Notificações",
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -37,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </p>
       }
       navItems={navItems}
-      notifications={<NotificationsMenu items={items} unreadCount={unreadCount} />}
+      notifications={<NotificationsMenu items={items} unreadCount={unreadCount} viewAllHref="/admin/notificacoes" />}
       userMenu={<UserMenu name={ctx.name} email={ctx.email} />}
       breadcrumbs={<Breadcrumbs root="/admin" rootLabel="Admin" labels={BREADCRUMB_LABELS} />}
     >

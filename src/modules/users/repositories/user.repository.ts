@@ -46,6 +46,10 @@ export function findSafeUserById(userId: string) {
   return db.user.findUnique({ where: { id: userId }, select: SAFE_USER_SELECT });
 }
 
+export function updateOwnName(userId: string, name: string) {
+  return db.user.update({ where: { id: userId }, data: { name }, select: SAFE_USER_SELECT });
+}
+
 export function updateInternalRole(userId: string, role: InternalRole) {
   return db.internalUserProfile.update({ where: { userId }, data: { internalRole: role } });
 }

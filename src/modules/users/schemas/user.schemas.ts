@@ -41,3 +41,8 @@ export const removeMemberSchema = z.object({
   userId: z.string().min(1),
 });
 export type RemoveMemberInput = z.infer<typeof removeMemberSchema>;
+
+export const updateOwnProfileSchema = z.object({
+  name: z.string().trim().min(1, "Informe seu nome.").max(120),
+});
+export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;
