@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/layout/LogoutButton";
 import { getRequestContext } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getRequestContext();
@@ -14,6 +16,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <p className="font-[family-name:var(--font-display)] text-base font-semibold">
           RZRT <span className="text-blue-light">Digital</span> · Admin
         </p>
+        <nav className="flex items-center gap-4 text-sm text-text-secondary">
+          <Link href="/admin" className="hover:text-blue-light">
+            Início
+          </Link>
+          {hasPermission(ctx, "organizations.read") && (
+            <Link href="/admin/clientes" className="hover:text-blue-light">
+              Clientes
+            </Link>
+          )}
+        </nav>
         <div className="flex items-center gap-4">
           <span className="text-sm text-text-secondary">{ctx.name}</span>
           <LogoutButton />
