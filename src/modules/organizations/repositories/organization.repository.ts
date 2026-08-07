@@ -100,3 +100,23 @@ export function softDeleteOrganization(organizationId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
 }
+
+/** Card "clientes por status" do dashboard admin (Etapa 4). */
+export async function countOrganizationsByStatus(
+  organizationIds?: string[],
+): Promise<Record<OrganizationStatus, number>> {
+  const groups = await db.organization.groupBy({
+    by: ["status"],
+    where: organizationIds ? { id: { in: organizationIds } } : {},
+    _count: { _all: true },
+  });
+
+  const result: Record<OrganizationStatus, number> = {
+    ONBOARDING: 0,
+    ACTIVE: 0,
+    SUSPENDED: 0,
+    ARCHIVED: 0,
+  };
+  for (const group of groups) result[group.status] = group._count._all;
+  return result;
+}
