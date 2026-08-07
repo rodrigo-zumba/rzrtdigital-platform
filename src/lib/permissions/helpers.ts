@@ -48,6 +48,18 @@ export function assertOrganizationAccess(ctx: RequestContext, organizationId: st
 }
 
 /**
+ * Lista de organizationId para filtrar queries agregadas por escopo
+ * (docs/ESPECIFICACAO.md §4). `undefined` = sem restrição (SUPER_ADMIN/ADMIN
+ * veem tudo); array vazio = nenhuma organização visível (CLIENT nunca usa
+ * isto — é só para o eixo INTERNAL).
+ */
+export function resolveOrganizationScope(ctx: RequestContext): string[] | undefined {
+  if (ctx.kind !== "INTERNAL") return [];
+  if (ctx.internalRole === "SUPER_ADMIN" || ctx.internalRole === "ADMIN") return undefined;
+  return ctx.assignments.map((assignment) => assignment.organizationId);
+}
+
+/**
  * Resolve o organizationId do projeto (findUnique por id — Project não
  * expõe filtro seguro sem conhecer o tenant de antemão) e só então valida o
  * escopo. Nunca confiar no organizationId vindo do request.
