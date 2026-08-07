@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { OrganizationsTable } from "@/components/admin/OrganizationsTable";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 import { requireRequestContext } from "@/lib/auth";
 import { listOrganizationsSchema } from "@/modules/organizations/schemas/organization.schemas";
 import { listOrganizations } from "@/modules/organizations/services/organization.service";
@@ -82,26 +83,12 @@ export default async function ClientesPage({
 
       <OrganizationsTable organizations={result.items} />
 
-      {result.pageCount > 1 && (
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
-          {Array.from({ length: result.pageCount }, (_, index) => index + 1).map((page) => {
-            const search = new URLSearchParams();
-            if (params.q) search.set("q", params.q);
-            if (params.status) search.set("status", params.status);
-            search.set("page", String(page));
-
-            return (
-              <Link
-                key={page}
-                href={`/admin/clientes?${search.toString()}`}
-                className={page === result.page ? "font-semibold text-blue-light" : "hover:text-blue-light"}
-              >
-                {page}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <Pagination
+        page={result.page}
+        pageCount={result.pageCount}
+        basePath="/admin/clientes"
+        searchParams={{ q: params.q, status: params.status }}
+      />
     </div>
   );
 }

@@ -84,6 +84,19 @@ const CLIENT_ROLE_RANK: Record<MemberRole, number> = {
 };
 
 /**
+ * Guard de escalada de privilégio (docs/PROMPTS.md Etapa 5): quem concede
+ * um papel nunca concede um papel igual ou superior ao seu próprio.
+ */
+export function canGrantInternalRole(ctx: RequestContext, role: InternalRole): boolean {
+  return ctx.kind === "INTERNAL" && INTERNAL_ROLE_RANK[ctx.internalRole] > INTERNAL_ROLE_RANK[role];
+}
+
+export function canGrantMemberRole(ctx: RequestContext, role: MemberRole): boolean {
+  if (ctx.kind === "INTERNAL") return true; // ADMIN/SUPER_ADMIN gerenciam papéis de cliente livremente.
+  return ctx.memberships.some((membership) => CLIENT_ROLE_RANK[membership.role] > CLIENT_ROLE_RANK[role]);
+}
+
+/**
  * Ninguém concede papel superior ao seu, nem edita/suspende usuário de
  * nível igual ou superior (docs/ESPECIFICACAO.md §4). Combina escopo
  * (organização) e hierarquia (rank do papel). A regra "SUPER_ADMIN não pode

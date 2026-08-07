@@ -13,10 +13,10 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 const passwordRules = z
   .string()
-      .min(8, "A senha precisa ter no mínimo 8 caracteres.")
-    .regex(/[A-Z]/, "A senha precisa ter ao menos uma letra maiúscula.")
-    .regex(/[a-z]/, "A senha precisa ter ao menos uma letra minúscula.")
-    .regex(/[0-9]/, "A senha precisa ter ao menos um número.");
+  .min(8, "A senha precisa ter no mínimo 8 caracteres.")
+  .regex(/[A-Z]/, "A senha precisa ter ao menos uma letra maiúscula.")
+  .regex(/[a-z]/, "A senha precisa ter ao menos uma letra minúscula.")
+  .regex(/[0-9]/, "A senha precisa ter ao menos um número.");
 
 export const resetPasswordSchema = z
   .object({

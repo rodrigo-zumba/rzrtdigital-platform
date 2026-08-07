@@ -32,3 +32,17 @@ export function markAllAsRead(userId: string) {
     data: { readAt: new Date() },
   });
 }
+
+/** Central de notificações (Fase 3) — lista paginada, lidas e não lidas. */
+export function listForUser(userId: string, params: { skip: number; take: number }) {
+  return db.notification.findMany({
+    where: { userId, organizationId: undefined },
+    orderBy: { createdAt: "desc" },
+    skip: params.skip,
+    take: params.take,
+  });
+}
+
+export function countForUser(userId: string) {
+  return db.notification.count({ where: { userId, organizationId: undefined } });
+}
