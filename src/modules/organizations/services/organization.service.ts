@@ -2,7 +2,7 @@ import type { OrganizationStatus } from "@prisma/client";
 
 import type { RequestContext } from "@/lib/auth/types";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { assertOrganizationAccess, requirePermission } from "@/lib/permissions";
+import { assertOrganizationAccess, requirePermission, resolveOrganizationScope } from "@/lib/permissions";
 import { createAuditLog } from "@/modules/audit/repositories/audit-log.repository";
 import {
   countOrganizations,
@@ -18,20 +18,13 @@ import {
 
 const PAGE_SIZE = 20;
 
-/** MANAGER/ANALYST só veem a carteira atribuída (docs/ESPECIFICACAO.md §4). */
-function scopedOrganizationIds(ctx: RequestContext): string[] | undefined {
-  if (ctx.kind !== "INTERNAL") return [];
-  if (ctx.internalRole === "SUPER_ADMIN" || ctx.internalRole === "ADMIN") return undefined;
-  return ctx.assignments.map((assignment) => assignment.organizationId);
-}
-
 export async function listOrganizations(
   ctx: RequestContext,
   params: { q?: string; status?: OrganizationStatus; page: number },
 ) {
   requirePermission(ctx, "organizations.read");
 
-  const organizationIds = scopedOrganizationIds(ctx);
+  const organizationIds = resolveOrganizationScope(ctx);
   const filters = { q: params.q, status: params.status, organizationIds };
 
   const [items, total] = await Promise.all([

@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 
-import { LogoutButton } from "@/components/layout/LogoutButton";
+import { AppShell } from "@/components/layout/AppShell";
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { NotificationsMenu } from "@/components/layout/NotificationsMenu";
+import { OrganizationSwitcher } from "@/components/layout/OrganizationSwitcher";
+import { UserMenu } from "@/components/layout/UserMenu";
 import { getRequestContext } from "@/lib/auth";
 import { getSelectedOrganizationId } from "@/lib/auth/workspace";
+import { getNotificationsPreview } from "@/modules/notifications/services/notification.service";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getRequestContext();
@@ -13,20 +18,24 @@ export default async function PortalLayout({ children }: { children: React.React
   if (!organizationId) redirect("/selecionar-workspace");
 
   const organization = ctx.memberships.find((membership) => membership.organizationId === organizationId);
+  if (!organization) redirect("/selecionar-workspace");
+
+  const { items, unreadCount } = await getNotificationsPreview(ctx);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
+    <AppShell
+      brand={
         <p className="font-[family-name:var(--font-display)] text-base font-semibold">
           RZRT <span className="text-blue-light">Digital</span>
-          {organization && <span className="text-text-secondary"> · {organization.organizationName}</span>}
         </p>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-text-secondary">{ctx.name}</span>
-          <LogoutButton />
-        </div>
-      </header>
-      <main className="flex-1 p-6">{children}</main>
-    </div>
+      }
+      navItems={[{ href: "/portal", label: "Início" }]}
+      orgSwitcher={<OrganizationSwitcher current={organization} memberships={ctx.memberships} />}
+      notifications={<NotificationsMenu items={items} unreadCount={unreadCount} />}
+      userMenu={<UserMenu name={ctx.name} email={ctx.email} />}
+      breadcrumbs={<Breadcrumbs root="/portal" rootLabel="Portal" labels={{}} />}
+    >
+      {children}
+    </AppShell>
   );
 }
