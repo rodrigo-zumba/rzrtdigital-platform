@@ -24,7 +24,7 @@ import {
 const PAGE_SIZE = 20;
 
 export async function listProjects(ctx: RequestContext, organizationId: string, page: number) {
-  requirePermission(ctx, "projects.read");
+  requirePermission(ctx, "projects.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const [items, total] = await Promise.all([
@@ -36,7 +36,7 @@ export async function listProjects(ctx: RequestContext, organizationId: string, 
 }
 
 export async function getProject(ctx: RequestContext, organizationId: string, projectId: string) {
-  requirePermission(ctx, "projects.read");
+  requirePermission(ctx, "projects.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const project = await findProjectById(organizationId, projectId);
@@ -46,7 +46,7 @@ export async function getProject(ctx: RequestContext, organizationId: string, pr
 }
 
 export async function createProject(ctx: RequestContext, organizationId: string, input: ProjectWriteInput) {
-  requirePermission(ctx, "projects.create");
+  requirePermission(ctx, "projects.create", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const project = await createProjectRow(organizationId, ctx.userId, input);
@@ -75,7 +75,7 @@ export async function updateProject(
   projectId: string,
   input: ProjectWriteInput,
 ) {
-  requirePermission(ctx, "projects.update");
+  requirePermission(ctx, "projects.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
 
@@ -99,7 +99,7 @@ export async function setProjectStatus(
   projectId: string,
   status: ProjectStatus,
 ) {
-  requirePermission(ctx, "projects.update");
+  requirePermission(ctx, "projects.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   const current = await assertProjectInOrganization(organizationId, projectId);
   if (current.status === status) return current;
@@ -124,7 +124,7 @@ export async function setProjectProgress(
   projectId: string,
   progress: number,
 ) {
-  requirePermission(ctx, "projects.update");
+  requirePermission(ctx, "projects.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
 
@@ -132,7 +132,7 @@ export async function setProjectProgress(
 }
 
 export async function archiveProject(ctx: RequestContext, organizationId: string, projectId: string) {
-  requirePermission(ctx, "projects.archive");
+  requirePermission(ctx, "projects.archive", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
 
@@ -154,7 +154,7 @@ export async function createTask(
   projectId: string,
   input: TaskWriteInput,
 ) {
-  requirePermission(ctx, "tasks.manage");
+  requirePermission(ctx, "tasks.manage", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
 
@@ -191,7 +191,7 @@ export async function updateTaskStatus(
   taskId: string,
   status: TaskStatus,
 ) {
-  requirePermission(ctx, "tasks.manage");
+  requirePermission(ctx, "tasks.manage", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
   await assertTaskInProject(projectId, taskId);
@@ -211,7 +211,7 @@ export async function updateTaskStatus(
 }
 
 export async function deleteTask(ctx: RequestContext, organizationId: string, projectId: string, taskId: string) {
-  requirePermission(ctx, "tasks.manage");
+  requirePermission(ctx, "tasks.manage", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertProjectInOrganization(organizationId, projectId);
   await assertTaskInProject(projectId, taskId);

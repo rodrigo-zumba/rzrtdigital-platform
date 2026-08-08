@@ -17,7 +17,7 @@ import {
 const PAGE_SIZE = 20;
 
 export async function listTickets(ctx: RequestContext, organizationId: string, page: number) {
-  requirePermission(ctx, "tickets.read");
+  requirePermission(ctx, "tickets.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const [items, total] = await Promise.all([
@@ -33,7 +33,7 @@ export async function listTickets(ctx: RequestContext, organizationId: string, p
  * Etapa 5, checklist) — filtrado aqui, não confiando na UI para escondê-lo.
  */
 export async function getTicket(ctx: RequestContext, organizationId: string, ticketId: string) {
-  requirePermission(ctx, "tickets.read");
+  requirePermission(ctx, "tickets.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const ticket = await findTicketById(organizationId, ticketId);
@@ -51,7 +51,7 @@ export async function createTicket(
   organizationId: string,
   input: { subject: string; description: string; category: TicketCategory; priority: ProjectPriority },
 ) {
-  requirePermission(ctx, "tickets.create");
+  requirePermission(ctx, "tickets.create", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const ticket = await createTicketRow(organizationId, ctx.userId, input);
@@ -80,7 +80,7 @@ export async function setTicketStatus(
   ticketId: string,
   status: TicketStatus,
 ) {
-  requirePermission(ctx, "tickets.manage");
+  requirePermission(ctx, "tickets.manage", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   const current = await assertTicketInOrganization(organizationId, ticketId);
   if (current.status === status) return current;
@@ -106,11 +106,11 @@ export async function addTicketMessage(
   message: string,
   isInternal: boolean,
 ) {
-  requirePermission(ctx, "tickets.respond");
+  requirePermission(ctx, "tickets.respond", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertTicketInOrganization(organizationId, ticketId);
 
-  if (isInternal && !hasPermission(ctx, "tickets.internalNotes")) throw new ForbiddenError();
+  if (isInternal && !hasPermission(ctx, "tickets.internalNotes", organizationId)) throw new ForbiddenError();
 
   const created = await createTicketMessage(ticketId, ctx.userId, message, isInternal);
 

@@ -27,7 +27,7 @@ export async function inviteClientToOrganization(
   ctx: RequestContext,
   params: { email: string; organizationId: string; role: MemberRole },
 ) {
-  requirePermission(ctx, "users.invite");
+  requirePermission(ctx, "users.invite", params.organizationId);
   assertOrganizationAccess(ctx, params.organizationId);
 
   const organization = await findOrganizationById(params.organizationId);

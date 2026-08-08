@@ -101,7 +101,7 @@ export async function setInternalUserStatus(ctx: RequestContext, userId: string,
 }
 
 export async function listOrganizationMembers(ctx: RequestContext, organizationId: string) {
-  requirePermission(ctx, "users.read");
+  requirePermission(ctx, "users.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   return listOrganizationMembersRows(organizationId);
 }
@@ -112,7 +112,7 @@ export async function updateMemberRole(
   userId: string,
   role: MemberRole,
 ) {
-  requirePermission(ctx, "users.update");
+  requirePermission(ctx, "users.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   if (userId === ctx.userId) throw new ForbiddenError("Você não pode alterar seu próprio papel.");
   if (!canGrantMemberRole(ctx, role)) throw new ForbiddenError();
@@ -141,7 +141,7 @@ export async function setMemberStatus(
   userId: string,
   status: "ACTIVE" | "SUSPENDED",
 ) {
-  requirePermission(ctx, "users.suspend");
+  requirePermission(ctx, "users.suspend", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   if (userId === ctx.userId) throw new ForbiddenError("Você não pode suspender a si mesmo.");
   if (!(await canManageUser(ctx, userId))) throw new ForbiddenError();
@@ -164,7 +164,7 @@ export async function setMemberStatus(
 }
 
 export async function removeMember(ctx: RequestContext, organizationId: string, userId: string) {
-  requirePermission(ctx, "users.remove");
+  requirePermission(ctx, "users.remove", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   if (userId === ctx.userId) throw new ForbiddenError("Você não pode remover a si mesmo.");
   if (!(await canManageUser(ctx, userId))) throw new ForbiddenError();

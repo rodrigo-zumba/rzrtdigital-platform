@@ -35,7 +35,7 @@ export default async function PortalLayout({ children }: { children: React.React
   const organization = ctx.memberships.find((membership) => membership.organizationId === organizationId);
   if (!organization) redirect("/selecionar-workspace");
 
-  const { items, unreadCount } = await getNotificationsPreview(ctx);
+  const { items, unreadCount } = await getNotificationsPreview(ctx, organizationId);
 
   return (
     <AppShell
@@ -47,12 +47,12 @@ export default async function PortalLayout({ children }: { children: React.React
       navItems={[
         { href: "/portal", label: "Início" },
         { href: "/portal/onboarding", label: "Onboarding" },
-        ...(hasPermission(ctx, "projects.read") ? [{ href: "/portal/projetos", label: "Projetos" }] : []),
-        ...(hasPermission(ctx, "campaigns.read") ? [{ href: "/portal/campanhas", label: "Campanhas" }] : []),
-        ...(hasPermission(ctx, "reports.read") ? [{ href: "/portal/relatorios", label: "Relatórios" }] : []),
-        ...(hasPermission(ctx, "tickets.read") ? [{ href: "/portal/chamados", label: "Chamados" }] : []),
-        ...(hasPermission(ctx, "files.download") ? [{ href: "/portal/arquivos", label: "Arquivos" }] : []),
-        ...(hasPermission(ctx, "users.read") ? [{ href: "/portal/equipe", label: "Equipe" }] : []),
+        ...(hasPermission(ctx, "projects.read", organizationId) ? [{ href: "/portal/projetos", label: "Projetos" }] : []),
+        ...(hasPermission(ctx, "campaigns.read", organizationId) ? [{ href: "/portal/campanhas", label: "Campanhas" }] : []),
+        ...(hasPermission(ctx, "reports.read", organizationId) ? [{ href: "/portal/relatorios", label: "Relatórios" }] : []),
+        ...(hasPermission(ctx, "tickets.read", organizationId) ? [{ href: "/portal/chamados", label: "Chamados" }] : []),
+        ...(hasPermission(ctx, "files.download", organizationId) ? [{ href: "/portal/arquivos", label: "Arquivos" }] : []),
+        ...(hasPermission(ctx, "users.read", organizationId) ? [{ href: "/portal/equipe", label: "Equipe" }] : []),
         { href: "/portal/organizacao", label: "Organização" },
         { href: "/portal/perfil", label: "Perfil" },
       ]}

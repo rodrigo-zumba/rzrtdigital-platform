@@ -22,7 +22,7 @@ function statusFilterFor(ctx: RequestContext): ReportStatus[] | undefined {
 }
 
 export async function listReports(ctx: RequestContext, organizationId: string, page: number) {
-  requirePermission(ctx, "reports.read");
+  requirePermission(ctx, "reports.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const statusFilter = statusFilterFor(ctx);
@@ -35,7 +35,7 @@ export async function listReports(ctx: RequestContext, organizationId: string, p
 }
 
 export async function getReport(ctx: RequestContext, organizationId: string, reportId: string) {
-  requirePermission(ctx, "reports.read");
+  requirePermission(ctx, "reports.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const report = await findReportById(organizationId, reportId);
@@ -46,7 +46,7 @@ export async function getReport(ctx: RequestContext, organizationId: string, rep
 }
 
 export async function createReport(ctx: RequestContext, organizationId: string, input: ReportWriteInput) {
-  requirePermission(ctx, "reports.create");
+  requirePermission(ctx, "reports.create", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const report = await createReportRow(organizationId, ctx.userId, input);
@@ -76,7 +76,7 @@ export async function setReportStatus(
   status: ReportStatus,
 ) {
   const permission = status === "PUBLISHED" ? "reports.publish" : "reports.create";
-  requirePermission(ctx, permission);
+  requirePermission(ctx, permission, organizationId);
   assertOrganizationAccess(ctx, organizationId);
   const current = await assertReportInOrganization(organizationId, reportId);
   if (current.status === status) return current;
@@ -96,7 +96,7 @@ export async function setReportStatus(
 }
 
 export async function archiveReport(ctx: RequestContext, organizationId: string, reportId: string) {
-  requirePermission(ctx, "reports.archive");
+  requirePermission(ctx, "reports.archive", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertReportInOrganization(organizationId, reportId);
 
