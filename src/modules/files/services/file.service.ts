@@ -20,7 +20,7 @@ function visibilityFilterFor(ctx: RequestContext): FileVisibility[] | undefined 
 }
 
 export async function listFiles(ctx: RequestContext, organizationId: string, page: number) {
-  requirePermission(ctx, "files.download");
+  requirePermission(ctx, "files.download", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const visibilityFilter = visibilityFilterFor(ctx);
@@ -37,7 +37,7 @@ export async function requestFileUpload(
   organizationId: string,
   input: { originalName: string; mimeType: string },
 ) {
-  requirePermission(ctx, "files.upload");
+  requirePermission(ctx, "files.upload", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const storageKey = buildStorageKey(organizationId, input.originalName);
@@ -57,7 +57,7 @@ export async function confirmFileUpload(
     visibility: FileVisibility;
   },
 ) {
-  requirePermission(ctx, "files.upload");
+  requirePermission(ctx, "files.upload", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   // storageKey é sempre gerado por requestFileUpload com prefixo da própria
@@ -89,7 +89,7 @@ export async function confirmFileUpload(
 }
 
 export async function getFileDownloadUrl(ctx: RequestContext, organizationId: string, fileId: string) {
-  requirePermission(ctx, "files.download");
+  requirePermission(ctx, "files.download", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const file = await findFileById(organizationId, fileId);
@@ -100,7 +100,7 @@ export async function getFileDownloadUrl(ctx: RequestContext, organizationId: st
 }
 
 export async function deleteFile(ctx: RequestContext, organizationId: string, fileId: string) {
-  requirePermission(ctx, "files.delete");
+  requirePermission(ctx, "files.delete", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const file = await findFileById(organizationId, fileId);

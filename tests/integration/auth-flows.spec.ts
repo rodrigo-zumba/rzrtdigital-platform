@@ -10,7 +10,11 @@ import { hasPermission, type Permission } from "@/lib/permissions";
 import { generateToken } from "@/lib/security/tokens";
 import { attemptLogin } from "@/modules/auth/services/login.service";
 import { resetPassword } from "@/modules/auth/services/password-reset.service";
-import { acceptInvitation, previewInvitation } from "@/modules/invitations/services/invitation.service";
+import {
+  acceptInvitation,
+  inviteClientToOrganization,
+  previewInvitation,
+} from "@/modules/invitations/services/invitation.service";
 
 const suffix = randomBytes(4).toString("hex");
 const testUserIds: string[] = [];
@@ -106,9 +110,58 @@ describe("matriz de permissões", () => {
       const ctx = clientCtx({
         memberships: [{ organizationId: "org_1", organizationName: "Org", role, status: "ACTIVE" }],
       });
-      expect(hasPermission(ctx, permission)).toBe(expected);
+      expect(hasPermission(ctx, permission, "org_1")).toBe(expected);
     });
   }
+});
+
+// Regressão: hasPermission não pode herdar o papel mais permissivo entre
+// organizações diferentes. CLIENT_ADMIN em A + CLIENT_VIEWER em B não pode
+// operar em B como se fosse admin.
+describe("hasPermission: isolamento entre organizações (CLIENT)", () => {
+  const ctx = clientCtx({
+    memberships: [
+      { organizationId: "org_a", organizationName: "Org A", role: "CLIENT_ADMIN", status: "ACTIVE" },
+      { organizationId: "org_b", organizationName: "Org B", role: "CLIENT_VIEWER", status: "ACTIVE" },
+    ],
+  });
+
+  it("permite users.invite em A (CLIENT_ADMIN)", () => {
+    expect(hasPermission(ctx, "users.invite", "org_a")).toBe(true);
+  });
+
+  it("bloqueia users.invite em B (CLIENT_VIEWER) mesmo sendo CLIENT_ADMIN em A", () => {
+    expect(hasPermission(ctx, "users.invite", "org_b")).toBe(false);
+  });
+
+  it("permite users.remove em A (CLIENT_ADMIN)", () => {
+    expect(hasPermission(ctx, "users.remove", "org_a")).toBe(true);
+  });
+
+  it("bloqueia users.remove em B (CLIENT_VIEWER) mesmo sendo CLIENT_ADMIN em A", () => {
+    expect(hasPermission(ctx, "users.remove", "org_b")).toBe(false);
+  });
+
+  it("bloqueia qualquer permissão em organização sem membership", () => {
+    expect(hasPermission(ctx, "users.invite", "org_c")).toBe(false);
+    expect(hasPermission(ctx, "projects.read", "org_c")).toBe(false);
+  });
+
+  it("bloqueia se a membership na organização-alvo não está ACTIVE", () => {
+    const inactiveCtx = clientCtx({
+      memberships: [{ organizationId: "org_a", organizationName: "Org A", role: "CLIENT_ADMIN", status: "SUSPENDED" }],
+    });
+    expect(hasPermission(inactiveCtx, "users.invite", "org_a")).toBe(false);
+  });
+
+  // Sem organizationId, hasPermission não deve cair em fallback de "qualquer
+  // membership ativa" — isso reabriria exatamente a escalada A → B que este
+  // guard existe para impedir. Um call site que esqueça de passar a
+  // organização deve negar, nunca herdar o CLIENT_ADMIN de outra org.
+  it("nega (não herda CLIENT_ADMIN de A) quando organizationId é omitido no call site", () => {
+    expect(hasPermission(ctx, "users.invite")).toBe(false);
+    expect(hasPermission(ctx, "users.remove")).toBe(false);
+  });
 });
 
 // docs/ESPECIFICACAO.md §13.5 — usuário suspenso perde acesso no request seguinte.
@@ -204,6 +257,26 @@ describe("convites", () => {
     }
     return invitedByPromise;
   }
+
+  it("bloqueia inviteClientToOrganization em B para CLIENT_ADMIN de A / CLIENT_VIEWER em B", async () => {
+    const orgA = await createOrg();
+    const orgB = await createOrg();
+
+    const ctx = clientCtx({
+      memberships: [
+        { organizationId: orgA.id, organizationName: orgA.name, role: "CLIENT_ADMIN", status: "ACTIVE" },
+        { organizationId: orgB.id, organizationName: orgB.name, role: "CLIENT_VIEWER", status: "ACTIVE" },
+      ],
+    });
+
+    await expect(
+      inviteClientToOrganization(ctx, {
+        email: `escalada-${suffix}@demo.rzrtdigital.com`,
+        organizationId: orgB.id,
+        role: "CLIENT_MEMBER",
+      }),
+    ).rejects.toThrow();
+  });
 
   it("aceite válido cria o usuário e a membership", async () => {
     const org = await createOrg();

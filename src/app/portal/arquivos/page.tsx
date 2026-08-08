@@ -38,9 +38,13 @@ export default async function PortalArquivosPage({ searchParams }: { searchParam
         <p className="mt-1 text-sm text-text-secondary">{result.total} arquivo(s).</p>
       </div>
 
-      {hasPermission(ctx, "files.upload") && <FileUploadForm organizationId={organizationId} />}
+      {hasPermission(ctx, "files.upload", organizationId) && <FileUploadForm organizationId={organizationId} />}
 
-      <FilesList organizationId={organizationId} files={result.items} canDelete={hasPermission(ctx, "files.delete")} />
+      <FilesList
+        organizationId={organizationId}
+        files={result.items}
+        canDelete={hasPermission(ctx, "files.delete", organizationId)}
+      />
 
       <Pagination page={result.page} pageCount={result.pageCount} basePath="/portal/arquivos" searchParams={{}} />
     </div>

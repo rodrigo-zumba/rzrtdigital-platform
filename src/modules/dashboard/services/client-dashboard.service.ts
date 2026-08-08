@@ -20,10 +20,10 @@ export type ClientDashboard = {
  * diferente do dashboard admin, não há seção "forbidden" — só vazio/real.
  */
 export async function getClientDashboard(ctx: RequestContext, organizationId: string): Promise<ClientDashboard> {
-  requirePermission(ctx, "projects.read");
-  requirePermission(ctx, "campaigns.read");
-  requirePermission(ctx, "metrics.read");
-  requirePermission(ctx, "tickets.read");
+  requirePermission(ctx, "projects.read", organizationId);
+  requirePermission(ctx, "campaigns.read", organizationId);
+  requirePermission(ctx, "metrics.read", organizationId);
+  requirePermission(ctx, "tickets.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const since = new Date();

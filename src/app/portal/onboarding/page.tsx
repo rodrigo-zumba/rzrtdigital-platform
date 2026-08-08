@@ -41,7 +41,7 @@ export default async function OnboardingPage() {
   if (!organizationId) redirect("/selecionar-workspace");
 
   const organization = await getOrganizationForMember(ctx, organizationId);
-  const canSeeTeam = hasPermission(ctx, "users.read");
+  const canSeeTeam = hasPermission(ctx, "users.read", organizationId);
   const members = canSeeTeam ? await listOrganizationMembers(ctx, organizationId) : [];
 
   const steps = [

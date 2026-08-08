@@ -32,10 +32,10 @@ export default async function EquipePage() {
       <TeamMembersSection
         organizationId={organizationId}
         members={members}
-        canEditRole={hasPermission(ctx, "users.update")}
-        canSuspend={hasPermission(ctx, "users.suspend")}
-        canRemove={hasPermission(ctx, "users.remove")}
-        canInvite={hasPermission(ctx, "users.invite")}
+        canEditRole={hasPermission(ctx, "users.update", organizationId)}
+        canSuspend={hasPermission(ctx, "users.suspend", organizationId)}
+        canRemove={hasPermission(ctx, "users.remove", organizationId)}
+        canInvite={hasPermission(ctx, "users.invite", organizationId)}
         title="Membros da organização"
       />
     </div>

@@ -46,7 +46,7 @@ export default async function PortalChamadoDetalhePage({
         organizationId={organizationId}
         ticketId={ticketId}
         messages={ticket.messages}
-        canRespond={hasPermission(ctx, "tickets.respond")}
+        canRespond={hasPermission(ctx, "tickets.respond", organizationId)}
         canWriteInternalNotes={false}
       />
     </div>

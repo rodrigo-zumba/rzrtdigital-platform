@@ -19,7 +19,7 @@ import { createAuditLog } from "@/modules/audit/repositories/audit-log.repositor
 const PAGE_SIZE = 20;
 
 export async function listCampaigns(ctx: RequestContext, organizationId: string, page: number) {
-  requirePermission(ctx, "campaigns.read");
+  requirePermission(ctx, "campaigns.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const [items, total] = await Promise.all([
@@ -31,7 +31,7 @@ export async function listCampaigns(ctx: RequestContext, organizationId: string,
 }
 
 export async function getCampaign(ctx: RequestContext, organizationId: string, campaignId: string) {
-  requirePermission(ctx, "campaigns.read");
+  requirePermission(ctx, "campaigns.read", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const campaign = await findCampaignById(organizationId, campaignId);
@@ -41,7 +41,7 @@ export async function getCampaign(ctx: RequestContext, organizationId: string, c
 }
 
 export async function createCampaign(ctx: RequestContext, organizationId: string, input: CampaignWriteInput) {
-  requirePermission(ctx, "campaigns.create");
+  requirePermission(ctx, "campaigns.create", organizationId);
   assertOrganizationAccess(ctx, organizationId);
 
   const campaign = await createCampaignRow(organizationId, input);
@@ -70,7 +70,7 @@ export async function setCampaignStatus(
   campaignId: string,
   status: CampaignStatus,
 ) {
-  requirePermission(ctx, "campaigns.update");
+  requirePermission(ctx, "campaigns.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   const current = await assertCampaignInOrganization(organizationId, campaignId);
   if (current.status === status) return current;
@@ -90,7 +90,7 @@ export async function setCampaignStatus(
 }
 
 export async function archiveCampaign(ctx: RequestContext, organizationId: string, campaignId: string) {
-  requirePermission(ctx, "campaigns.archive");
+  requirePermission(ctx, "campaigns.archive", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertCampaignInOrganization(organizationId, campaignId);
 
@@ -117,7 +117,7 @@ export async function addManualMetric(
   campaignId: string,
   input: DailyMetricInput,
 ) {
-  requirePermission(ctx, "metrics.write");
+  requirePermission(ctx, "metrics.write", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   await assertCampaignInOrganization(organizationId, campaignId);
 

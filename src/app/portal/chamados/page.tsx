@@ -39,7 +39,7 @@ export default async function PortalChamadosPage({ searchParams }: { searchParam
           <h1 className="text-xl font-semibold text-text-primary">Chamados</h1>
           <p className="mt-1 text-sm text-text-secondary">{result.total} chamado(s).</p>
         </div>
-        {hasPermission(ctx, "tickets.create") && (
+        {hasPermission(ctx, "tickets.create", organizationId) && (
           <Link href="/portal/chamados/novo">
             <Button>Novo chamado</Button>
           </Link>

@@ -7,20 +7,34 @@ import { findRoleInfoById } from "@/modules/users/repositories/user.repository";
 
 import { CLIENT_ROLE_PERMISSIONS, INTERNAL_ROLE_PERMISSIONS, type Permission } from "./matrix";
 
-/** can(): o que esse usuário pode fazer, pela role — não diz nada sobre escopo. */
-export function hasPermission(ctx: RequestContext, permission: Permission): boolean {
+/**
+ * can(): o que esse usuário pode fazer, pela role.
+ *
+ * CLIENT pode ter papéis diferentes em organizações diferentes (ex.:
+ * CLIENT_ADMIN em A, CLIENT_VIEWER em B) — por isso, para CLIENT,
+ * `organizationId` é obrigatório e a checagem usa exclusivamente a
+ * membership ACTIVE daquela organização, nunca o papel mais permissivo
+ * entre todas as memberships do usuário. Sem `organizationId` (ou sem
+ * membership ACTIVE nela), a resposta é sempre `false` — negação segura, sem
+ * fallback para "qualquer membership ativa" (esse fallback é exatamente a
+ * escalada entre organizações que este guard existe para impedir). Todo
+ * call site que opera sobre uma organização deve repassá-la aqui; um
+ * recurso genuinamente não tenant-scoped (não há nenhum na matriz atual)
+ * precisaria de um helper próprio, não de omitir este parâmetro.
+ */
+export function hasPermission(ctx: RequestContext, permission: Permission, organizationId?: string): boolean {
   if (ctx.kind === "INTERNAL") {
     return INTERNAL_ROLE_PERMISSIONS[ctx.internalRole].includes(permission);
   }
 
-  // Um CLIENT pode ter papéis diferentes em organizações diferentes; para a
-  // checagem de "can" (sem organização em mente) usamos o papel mais
-  // permissivo entre as memberships ativas.
-  return ctx.memberships.some((membership) => CLIENT_ROLE_PERMISSIONS[membership.role].includes(permission));
+  if (!organizationId) return false;
+
+  const membership = ctx.memberships.find((m) => m.organizationId === organizationId && m.status === "ACTIVE");
+  return membership ? CLIENT_ROLE_PERMISSIONS[membership.role].includes(permission) : false;
 }
 
-export function requirePermission(ctx: RequestContext, permission: Permission): void {
-  if (!hasPermission(ctx, permission)) {
+export function requirePermission(ctx: RequestContext, permission: Permission, organizationId?: string): void {
+  if (!hasPermission(ctx, permission, organizationId)) {
     throw new ForbiddenError();
   }
 }
