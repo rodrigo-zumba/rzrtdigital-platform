@@ -115,7 +115,7 @@ export async function updateMemberRole(
   requirePermission(ctx, "users.update", organizationId);
   assertOrganizationAccess(ctx, organizationId);
   if (userId === ctx.userId) throw new ForbiddenError("Você não pode alterar seu próprio papel.");
-  if (!canGrantMemberRole(ctx, role)) throw new ForbiddenError();
+  if (!canGrantMemberRole(ctx, role, organizationId)) throw new ForbiddenError();
   if (!(await canManageUser(ctx, userId))) throw new ForbiddenError();
 
   const membership = await findMembership(organizationId, userId);

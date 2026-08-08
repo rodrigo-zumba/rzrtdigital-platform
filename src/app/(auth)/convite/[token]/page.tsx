@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { AcceptInvitationForm } from "@/components/forms/AcceptInvitationForm";
+import { getClientIp } from "@/lib/security/rate-limit";
 import { previewInvitation } from "@/modules/invitations/services/invitation.service";
 
 export const metadata: Metadata = { title: "Aceitar convite" };
@@ -12,7 +14,8 @@ export default async function AcceptInvitationPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const preview = await previewInvitation(token);
+  const ip = getClientIp(await headers());
+  const preview = await previewInvitation(token, ip);
 
   if (!preview.valid) {
     return (
