@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { hashPassword } from "@/lib/auth/password";
 import type { RequestContext } from "@/lib/auth/types";
 import { db } from "@/lib/db";
-import { hasPermission, type Permission } from "@/lib/permissions";
+import { canGrantMemberRole, hasPermission, type Permission } from "@/lib/permissions";
 import { generateToken } from "@/lib/security/tokens";
 import { attemptLogin } from "@/modules/auth/services/login.service";
 import { resetPassword } from "@/modules/auth/services/password-reset.service";
@@ -164,6 +164,40 @@ describe("hasPermission: isolamento entre organizações (CLIENT)", () => {
   });
 });
 
+// Regressão: canGrantMemberRole tinha o mesmo padrão de hasPermission antes
+// da correção — `.some()` sem escopo por organização. CLIENT_ADMIN em A não
+// pode conceder papel em B usando o rank que só vale em A.
+describe("canGrantMemberRole: isolamento entre organizações (CLIENT)", () => {
+  const ctx = clientCtx({
+    memberships: [
+      { organizationId: "org_a", organizationName: "Org A", role: "CLIENT_ADMIN", status: "ACTIVE" },
+      { organizationId: "org_b", organizationName: "Org B", role: "CLIENT_VIEWER", status: "ACTIVE" },
+    ],
+  });
+
+  it("permite CLIENT_ADMIN em A conceder CLIENT_MEMBER em A (rank inferior)", () => {
+    expect(canGrantMemberRole(ctx, "CLIENT_MEMBER", "org_a")).toBe(true);
+  });
+
+  it("bloqueia em B (CLIENT_VIEWER) mesmo sendo CLIENT_ADMIN em A", () => {
+    expect(canGrantMemberRole(ctx, "CLIENT_MEMBER", "org_b")).toBe(false);
+    expect(canGrantMemberRole(ctx, "CLIENT_VIEWER", "org_b")).toBe(false);
+  });
+
+  it("bloqueia sem organizationId (não herda o rank de A)", () => {
+    expect(canGrantMemberRole(ctx, "CLIENT_MEMBER")).toBe(false);
+  });
+
+  it("bloqueia em organização sem membership", () => {
+    expect(canGrantMemberRole(ctx, "CLIENT_VIEWER", "org_c")).toBe(false);
+  });
+
+  it("INTERNAL sempre pode conceder, independente de organizationId", () => {
+    const internal = internalCtx({ internalRole: "ADMIN" });
+    expect(canGrantMemberRole(internal, "CLIENT_ADMIN")).toBe(true);
+  });
+});
+
 // docs/ESPECIFICACAO.md §13.5 — usuário suspenso perde acesso no request seguinte.
 describe("login: usuário suspenso", () => {
   it("bloqueia login mesmo com senha correta", async () => {
@@ -296,10 +330,15 @@ describe("convites", () => {
       },
     });
 
-    const preview = await previewInvitation(token);
+    const preview = await previewInvitation(token, "127.0.0.1");
     expect(preview.valid).toBe(true);
 
-    const user = await acceptInvitation({ token, name: "Convidado Válido", password: "SenhaForte123456" });
+    const user = await acceptInvitation({
+      token,
+      name: "Convidado Válido",
+      password: "SenhaForte123456",
+      ip: "127.0.0.1",
+    });
     testUserIds.push(user.id);
 
     const membership = await db.organizationMember.findUnique({
@@ -325,9 +364,11 @@ describe("convites", () => {
       },
     });
 
-    const preview = await previewInvitation(token);
+    const preview = await previewInvitation(token, "127.0.0.1");
     expect(preview.valid).toBe(false);
-    await expect(acceptInvitation({ token, password: "SenhaForte123456" })).rejects.toThrow(/expirado/);
+    await expect(acceptInvitation({ token, password: "SenhaForte123456", ip: "127.0.0.1" })).rejects.toThrow(
+      /expirado/,
+    );
   });
 
   it("convite revogado é rejeitado", async () => {
@@ -351,9 +392,9 @@ describe("convites", () => {
       data: { status: "REVOKED", revokedAt: new Date() },
     });
 
-    const preview = await previewInvitation(token);
+    const preview = await previewInvitation(token, "127.0.0.1");
     expect(preview.valid).toBe(false);
-    await expect(acceptInvitation({ token, password: "SenhaForte123456" })).rejects.toThrow(
+    await expect(acceptInvitation({ token, password: "SenhaForte123456", ip: "127.0.0.1" })).rejects.toThrow(
       /inválido, expirado ou já utilizado/,
     );
   });
@@ -375,9 +416,14 @@ describe("convites", () => {
       },
     });
 
-    const user = await acceptInvitation({ token, name: "Convidado Duplicado", password: "SenhaForte123456" });
+    const user = await acceptInvitation({
+      token,
+      name: "Convidado Duplicado",
+      password: "SenhaForte123456",
+      ip: "127.0.0.1",
+    });
     testUserIds.push(user.id);
 
-    await expect(acceptInvitation({ token, password: "OutraSenha123456" })).rejects.toThrow();
+    await expect(acceptInvitation({ token, password: "OutraSenha123456", ip: "127.0.0.1" })).rejects.toThrow();
   });
 });

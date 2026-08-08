@@ -6,6 +6,7 @@ import { env } from "@/lib/env";
 import { invitationEmail, sendEmail } from "@/lib/email";
 import { AppError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { assertOrganizationAccess, canGrantInternalRole, requirePermission } from "@/lib/permissions";
+import { checkRateLimit, invitationRateLimitByIp, invitationRateLimitByToken } from "@/lib/security/rate-limit";
 import { generateToken, hashToken, INVITATION_EXPIRATION_MS } from "@/lib/security/tokens";
 import { createAuditLog } from "@/modules/audit/repositories/audit-log.repository";
 import {
@@ -120,9 +121,26 @@ export type InvitationPreview =
   | { valid: true; email: string; organizationName: string | null }
   | { valid: false; reason: string };
 
-/** Usado pela página /convite/[token] para decidir o que renderizar, sem expor o hash do token. */
-export async function previewInvitation(token: string): Promise<InvitationPreview> {
+/**
+ * Usado pela página /convite/[token] para decidir o que renderizar, sem
+ * expor o hash do token. `token` de 32 bytes é praticamente impossível de
+ * adivinhar, mas a única defesa contra tentativa de força bruta é rate
+ * limit — por IP (muitos tokens diferentes tentados) e por token (muitas
+ * tentativas contra o mesmo alvo). Igual ao login/reset de senha
+ * (CLAUDE.md §4.7), a resposta de rate limit excedido é a mesma mensagem
+ * genérica de "inválido" — não revela que o limite foi atingido.
+ */
+export async function previewInvitation(token: string, ip: string): Promise<InvitationPreview> {
   const tokenHash = hashToken(token);
+
+  const [ipAllowed, tokenAllowed] = await Promise.all([
+    checkRateLimit(invitationRateLimitByIp, ip),
+    checkRateLimit(invitationRateLimitByToken, tokenHash),
+  ]);
+  if (!ipAllowed || !tokenAllowed) {
+    return { valid: false, reason: "Convite inválido, expirado ou já utilizado." };
+  }
+
   const invitation = await findByTokenHash(tokenHash);
 
   if (!invitation || invitation.status !== "PENDING") {
@@ -139,8 +157,17 @@ export async function previewInvitation(token: string): Promise<InvitationPrevie
   return { valid: true, email: invitation.email, organizationName: organization?.name ?? null };
 }
 
-export async function acceptInvitation(params: { token: string; name?: string; password: string }) {
+export async function acceptInvitation(params: { token: string; name?: string; password: string; ip: string }) {
   const tokenHash = hashToken(params.token);
+
+  const [ipAllowed, tokenAllowed] = await Promise.all([
+    checkRateLimit(invitationRateLimitByIp, params.ip),
+    checkRateLimit(invitationRateLimitByToken, tokenHash),
+  ]);
+  if (!ipAllowed || !tokenAllowed) {
+    throw new ValidationError("Convite inválido, expirado ou já utilizado.");
+  }
+
   const invitation = await findByTokenHash(tokenHash);
 
   if (!invitation || invitation.status !== "PENDING") {

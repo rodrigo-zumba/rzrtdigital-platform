@@ -105,9 +105,19 @@ export function canGrantInternalRole(ctx: RequestContext, role: InternalRole): b
   return ctx.kind === "INTERNAL" && INTERNAL_ROLE_RANK[ctx.internalRole] > INTERNAL_ROLE_RANK[role];
 }
 
-export function canGrantMemberRole(ctx: RequestContext, role: MemberRole): boolean {
+/**
+ * Mesma regra de escopo de `hasPermission`: um CLIENT_ADMIN na organização A
+ * não pode conceder papel em B usando o rank que só vale em A. `organizationId`
+ * é obrigatório para CLIENT e a checagem usa exclusivamente a membership
+ * ACTIVE daquela organização — sem `organizationId`, nega (sem fallback para
+ * "qualquer membership").
+ */
+export function canGrantMemberRole(ctx: RequestContext, role: MemberRole, organizationId?: string): boolean {
   if (ctx.kind === "INTERNAL") return true; // ADMIN/SUPER_ADMIN gerenciam papéis de cliente livremente.
-  return ctx.memberships.some((membership) => CLIENT_ROLE_RANK[membership.role] > CLIENT_ROLE_RANK[role]);
+  if (!organizationId) return false;
+
+  const membership = ctx.memberships.find((m) => m.organizationId === organizationId && m.status === "ACTIVE");
+  return membership ? CLIENT_ROLE_RANK[membership.role] > CLIENT_ROLE_RANK[role] : false;
 }
 
 /**
